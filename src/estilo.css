@@ -1075,3 +1075,348 @@ input[type='range'] {
 .pouso__painel > .botao {
   touch-action: none;
 }
+/* =====================================================================
+   Celulares, tablets e telas de toque
+   ===================================================================== */
+
+html,
+body {
+  overscroll-behavior: none;
+}
+body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+.app,
+.tela-cheia {
+  /* dvh desconta as barras do navegador do celular */
+  height: 100dvh;
+}
+.tela-cheia {
+  overflow-y: auto;
+  justify-content: safe center;
+}
+.botao,
+.tecla,
+.cabine {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.botao-usar,
+.seta-borda {
+  cursor: pointer;
+}
+.pouso__motor,
+.pouso__setas .botao {
+  touch-action: none;
+}
+
+/* dedo em vez de mouse: alvos maiores, sem dicas de teclado */
+@media (pointer: coarse) {
+  .dsky__teclado {
+    grid-auto-rows: 46px;
+  }
+  .botao--mini {
+    font-size: 12px;
+    padding: 9px 12px;
+  }
+  .pouso__motor {
+    min-height: 60px;
+    font-size: 15px;
+  }
+  .pouso__setas .botao {
+    min-height: 52px;
+  }
+  .pouso__teclas,
+  .dsky__atalhos,
+  .rodape__controles {
+    display: none;
+  }
+  input[type='range'] {
+    height: 36px;
+  }
+}
+
+/* tela estreita (celular em pé) ou baixa (celular deitado): painéis em tela cheia */
+@media (max-width: 760px), (max-height: 560px) {
+  .sobreposicao {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    padding: 0;
+    place-items: stretch;
+    background: var(--fundo);
+  }
+  .console {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+  .console__topo {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .console .provisoria {
+    flex: 1;
+    justify-content: center;
+  }
+  .palco {
+    padding: 2px 0;
+  }
+  .cabecalho,
+  .rodape {
+    padding: 6px 10px;
+    gap: 4px 12px;
+  }
+  .rodape {
+    grid-template-columns: 1fr auto;
+  }
+  .rodape__controles {
+    display: none;
+  }
+  .rodape__objetivo {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  .rodape__formula {
+    font-size: 15px;
+  }
+  .rodape .aviso {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .trilha__nome {
+    display: none;
+  }
+  .cena {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    font-size: 14px;
+  }
+  .cabecalho {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .trilha {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .trilha li {
+    flex: 1;
+    justify-content: center;
+    border-bottom: 3px solid var(--chumbo-esc);
+    padding-bottom: 3px;
+  }
+  .trilha .trilha__atual {
+    border-bottom-color: var(--ambar);
+  }
+  .trilha .trilha__feita {
+    border-bottom-color: var(--verde);
+  }
+  .marca strong {
+    font-size: 15px;
+  }
+  .acoes {
+    gap: 6px;
+  }
+  .cabecalho .botao {
+    font-size: 11px;
+    padding: 6px 8px;
+    letter-spacing: 0.08em;
+  }
+  .cena__instrucao b {
+    white-space: normal;
+  }
+  .dsky {
+    padding: 10px;
+  }
+  .tecla {
+    min-width: 0;
+  }
+
+  /* pouso: cena em cima, controles grandes logo abaixo, leituras depois */
+  .pouso__painel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .pouso__painel > * {
+    grid-column: 1 / -1;
+  }
+  .pouso__motor {
+    order: -3;
+  }
+  .pouso__setas {
+    order: -2;
+  }
+  .pouso__empuxo {
+    order: -1;
+  }
+  .pouso__dica {
+    top: 6px;
+    max-width: 94%;
+    width: max-content;
+    white-space: normal;
+    text-align: center;
+    font-size: 11.5px;
+    padding: 4px 8px;
+  }
+  .pouso__assumir {
+    width: 92%;
+    white-space: normal;
+    font-size: 13px;
+    padding: 10px;
+  }
+  .pouso__resultado {
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+  }
+  .pouso__resultado h3 {
+    font-size: 18px;
+  }
+  .gravidade {
+    grid-template-columns: 1fr 1fr;
+  }
+  .roteiro li {
+    padding: 8px 10px;
+  }
+  .tela-cheia {
+    gap: 12px;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  /* DSKY: lâmpadas viram uma faixa em cima do visor */
+  .dsky__topo {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .dsky__lampadas {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .lampada {
+    font-size: 8px;
+    min-height: 26px;
+    letter-spacing: 0.04em;
+  }
+  .dsky__teclado {
+    gap: 5px;
+  }
+  .tecla--funcao {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+  .decolagem {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* celular deitado: pouca altura */
+@media (max-height: 560px) and (orientation: landscape) {
+  .marca span,
+  .rodape .aviso,
+  .pouso__visor,
+  .pouso__formulas,
+  .pouso__teclas {
+    display: none;
+  }
+  .cabecalho,
+  .rodape {
+    padding: 4px 10px;
+  }
+  .console__topo {
+    padding: 4px 12px;
+  }
+  .cena {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .pouso__esquerda {
+    /* a cena (proporção 3:2) nunca passa da altura da tela */
+    max-width: calc((100dvh - 96px) * 1.5);
+    justify-self: center;
+    width: 100%;
+  }
+  .decolagem svg {
+    max-height: calc(100dvh - 80px);
+  }
+  .tela-cheia {
+    gap: 8px;
+    padding: 10px 16px;
+  }
+  .tela-cheia .titulo,
+  .tela-cheia .titulo--longo {
+    font-size: clamp(28px, 13vh, 80px);
+  }
+  .tela-cheia .aviso {
+    margin-top: 4px;
+  }
+  .subtitulo,
+  .roteiro {
+    margin-bottom: 4px;
+  }
+  .roteiro li {
+    padding: 6px 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* no celular em pé, as leituras ficam logo abaixo dos botões e o visor por último */
+  .pouso__visor {
+    order: 5;
+  }
+}
+
+/* celular deitado e estreito: mantém o cabeçalho em uma linha e o pouso em duas colunas */
+@media (max-height: 560px) and (orientation: landscape) and (max-width: 760px) {
+  .cabecalho {
+    flex-wrap: nowrap;
+  }
+  .trilha {
+    order: 0;
+    flex: 1;
+    flex-basis: auto;
+    justify-content: center;
+    gap: 6px 10px;
+  }
+  .trilha li {
+    flex: none;
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .pouso {
+    grid-template-columns: minmax(0, 1fr) 210px;
+  }
+  .pouso__painel {
+    display: flex;
+  }
+  .pouso__esquerda {
+    /* aqui a instrução ocupa duas linhas: sobra menos altura para a cena */
+    max-width: calc((100dvh - 134px) * 1.5);
+  }
+  .pouso__setas .botao {
+    padding: 9px 2px;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+  .dsky-conjunto {
+    grid-template-columns: auto minmax(180px, 1fr);
+  }
+}

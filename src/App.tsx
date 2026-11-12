@@ -6,6 +6,7 @@ import { CENAS } from './fases/cenas';
 import { FASES, MODULOS } from './game/fases';
 import { ESTADO_INICIAL, criarRedutor, type EstadoJogo } from './game/maquina';
 import { alternarMudo, estaMudo, tocar } from './som';
+import { TELA_DE_TOQUE } from './toque';
 
 const reduzir = criarRedutor(FASES.length);
 
@@ -81,9 +82,15 @@ export function App() {
           Iniciar missão
         </button>
         <p className="tela-cheia__controles">
-          <kbd>←</kbd>
-          <kbd>→</kbd> ou <kbd>A</kbd>
-          <kbd>D</kbd> para andar pela cabine · <kbd>E</kbd> para usar um painel · ou use o mouse
+          {TELA_DE_TOQUE ? (
+            'Toque no chão para andar pela cabine e toque em um painel para usá-lo.'
+          ) : (
+            <>
+              <kbd>←</kbd>
+              <kbd>→</kbd> ou <kbd>A</kbd>
+              <kbd>D</kbd> para andar pela cabine · <kbd>E</kbd> para usar um painel · ou clique na tela
+            </>
+          )}
         </p>
         <p className="aviso">{AVISO}</p>
       </main>
@@ -162,7 +169,7 @@ export function App() {
               <header className="console__topo">
                 <span>{status === 'dsky' ? 'DSKY · consulta livre' : `Fase ${indiceFase + 1} · ${fase.titulo}`}</span>
                 <button className="botao botao--mini" onClick={() => despachar({ tipo: 'FECHAR_PAINEL' })}>
-                  Voltar (Esc)
+                  {TELA_DE_TOQUE ? 'Voltar' : 'Voltar (Esc)'}
                 </button>
               </header>
               {status === 'dsky' ? (
@@ -215,7 +222,7 @@ export function App() {
         <p className="rodape__controles">
           <kbd>←</kbd>
           <kbd>→</kbd> ou <kbd>A</kbd>
-          <kbd>D</kbd> andar · <kbd>E</kbd> usar · ou clique no painel
+          <kbd>D</kbd> andar · <kbd>E</kbd> usar · ou toque/clique no painel
         </p>
         <p className="aviso">{AVISO}</p>
       </footer>

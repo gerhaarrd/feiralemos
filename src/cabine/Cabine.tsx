@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MODULOS, estacaoDaFase, type Estacao, type Fase } from '../game/fases';
 import { limitar, maisProximo, passoMovimento, type ConfigMovimento } from '../game/movimento';
+import { TELA_DE_TOQUE } from '../toque';
 import { Astronauta } from './Astronauta';
 import { Janela } from './Janela';
 import { PainelEstacao } from './PainelEstacao';
@@ -16,6 +17,13 @@ const MOVIMENTO: ConfigMovimento = { velocidade: 430, minX: 110, maxX: 1170 };
 const TECLAS_ESQ = new Set(['arrowleft', 'a']);
 const TECLAS_DIR = new Set(['arrowright', 'd']);
 const TECLAS_USAR = new Set(['e', 'w', 'arrowup']);
+/** Em telas estreitas a câmera mostra só um trecho da cabine; este é o trecho mínimo. */
+const VISTA_MIN = 520;
+/** Em telas baixas (celular deitado) a câmera corta o teto: mostra de Y_CORTE até o piso. */
+const ALTURA_VISTA_MIN = 480;
+const Y_CORTE = 186;
+/** Abaixo desta altura em pixels a cabine inteira ficaria pequena demais. */
+const TELA_BAIXA_PX = 430;
 
 interface Props {
   fase: Fase;
@@ -40,6 +48,9 @@ export function Cabine({ fase, ativo, aoAbrirTarefa, aoAbrirDsky }: Props) {
 
   const [quadro, setQuadro] = useState<Quadro>({ x: modulo.entradaX, virado: 'dir', andando: false, t: 0 });
   const [fala, setFala] = useState<string | null>(null);
+  /** Proporção largura/altura do espaço disponível na tela. */
+  const [aspecto, setAspecto] = useState(LARGURA / ALTURA);
+  const [alturaPx, setAlturaPx] = useState(ALTURA);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Estado mutável do laço de animação (fora do React para não recriar o laço).
@@ -64,6 +75,22 @@ export function Cabine({ fase, ativo, aoAbrirTarefa, aoAbrirDsky }: Props) {
   // O laço e os listeners sempre enxergam as props mais recentes.
   const atual = useRef({ ativo, usar, estacoes: modulo.estacoes });
   atual.current = { ativo, usar, estacoes: modulo.estacoes };
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const medir = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        setAspecto(r.width / r.height);
+        setAlturaPx(r.height);
+      }
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!fala) return;
@@ -154,6 +181,17 @@ export function Cabine({ fase, ativo, aoAbrirTarefa, aoAbrirDsky }: Props) {
   };
 
   const perto = ativo ? maisProximo(quadro.x, modulo.estacoes, ALCANCE) : null;
+
+  // Câmera: em tela larga mostra a cabine inteira; em tela estreita (celular em
+  // pé) mostra um trecho e acompanha o astronauta.
+  // Em tela baixa e larga (celular deitado) corta o teto para a cabine ocupar a largura toda.
+  const telaBaixa = alturaPx < TELA_BAIXA_PX && aspecto > LARGURA / ALTURA;
+  const alturaVista = telaBaixa ? limitar(LARGURA / aspecto, ALTURA_VISTA_MIN, ALTURA) : ALTURA;
+  const cameraY = ((ALTURA - alturaVista) * Y_CORTE) / (ALTURA - ALTURA_VISTA_MIN);
+  const larguraVista = telaBaixa ? LARGURA : limitar(ALTURA * aspecto, VISTA_MIN, LARGURA);
+  const cameraX = limitar(quadro.x - larguraVista / 2, 0, LARGURA - larguraVista);
+  const alvoFora = alvo.x < cameraX + 60 ? 'esq' : alvo.x > cameraX + larguraVista - 60 ? 'dir' : null;
+  const meiaFala = Math.min(250, larguraVista / 2 - 6);
   const eagle = modulo.id === 'eagle';
   const casco = eagle
     ? 'M130,70 H1150 L1244,170 V664 H36 V170 Z'
@@ -164,7 +202,7 @@ export function Cabine({ fase, ativo, aoAbrirTarefa, aoAbrirDsky }: Props) {
     <svg
       ref={svgRef}
       className="cabine"
-      viewBox={`0 0 ${LARGURA} ${ALTURA}`}
+      viewBox={`${cameraX} ${cameraY} ${larguraVista} ${alturaVista}`}
       onClick={aoClicarCenario}
       role="img"
       aria-label={`Cabine do módulo ${modulo.nome}`}
@@ -237,25 +275,50 @@ export function Cabine({ fase, ativo, aoAbrirTarefa, aoAbrirDsky }: Props) {
         t={quadro.t}
       />
 
-      {/* dica de interação / fala do astronauta */}
-      {(fala || perto) && (
-        <g transform={`translate(${limitar(quadro.x, 250, LARGURA - 250)} ${PISO - 238})`} pointerEvents="none">
-          {fala ? (
-            <>
-              <rect x={-250} y={-22} width={500} height={34} rx={4} className="f-creme tr" />
-              <text y={1} textAnchor="middle" className="txt-mono f-tinta" fontSize={15}>
-                {fala}
-              </text>
-            </>
-          ) : (
-            <>
-              <rect x={-62} y={-22} width={124} height={34} rx={4} className="f-ambar tr" />
-              <text y={1} textAnchor="middle" className="txt-rotulo f-tinta" fontSize={15}>
-                [E] USAR
-              </text>
-            </>
-          )}
+      {/* painel da tarefa fora da tela: seta na borda leva até ele */}
+      {ativo && alvoFora && (
+        <g
+          transform={`translate(${alvoFora === 'esq' ? cameraX + 78 : cameraX + larguraVista - 78} 216)`}
+          className="seta-borda"
+          onClick={(e) => {
+            e.stopPropagation();
+            irAte(alvo.x, alvo);
+          }}
+        >
+          <rect x={-70} y={-24} width={140} height={48} rx={4} className="f-ambar tr" />
+          <text y={6} textAnchor="middle" className="txt-rotulo f-tinta" fontSize={16}>
+            {alvoFora === 'esq' ? '◀ TAREFA' : 'TAREFA ▶'}
+          </text>
         </g>
+      )}
+
+      {/* fala do astronauta / botão de usar o painel próximo */}
+      {fala ? (
+        <g
+          transform={`translate(${limitar(quadro.x, cameraX + meiaFala + 6, cameraX + larguraVista - meiaFala - 6)} ${PISO - 238})`}
+          pointerEvents="none"
+        >
+          <rect x={-meiaFala} y={-22} width={meiaFala * 2} height={34} rx={4} className="f-creme tr" />
+          <text y={1} textAnchor="middle" className="txt-mono f-tinta" fontSize={15}>
+            {fala}
+          </text>
+        </g>
+      ) : (
+        perto && (
+          <g
+            transform={`translate(${quadro.x} ${PISO - 238})`}
+            className="botao-usar"
+            onClick={(e) => {
+              e.stopPropagation();
+              usar(perto);
+            }}
+          >
+            <rect x={-70} y={-28} width={140} height={46} rx={4} className="f-ambar tr" />
+            <text y={3} textAnchor="middle" className="txt-rotulo f-tinta" fontSize={16}>
+              {TELA_DE_TOQUE ? 'USAR' : '[E] USAR'}
+            </text>
+          </g>
+        )
       )}
     </svg>
   );

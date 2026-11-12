@@ -13,6 +13,7 @@ import {
   type ResultadoPouso,
 } from '../physics/pouso';
 import { tocar } from '../som';
+import { TELA_DE_TOQUE } from '../toque';
 import type { PropsCena } from './cenas';
 
 const L = 600;
@@ -23,6 +24,9 @@ const py = (h: number) => SOLO - h * 2.1;
 const limitar = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 const br = (n: number, casas = 0) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
+
+/** Nome de cada controle na dica: tecla no computador, botão na tela de toque. */
+const CTRL = TELA_DE_TOQUE ? { motor: 'MOTOR', esq: 'ESQUERDA', dir: 'DIREITA' } : { motor: 'W', esq: 'A', dir: 'D' };
 
 const ESTRELAS = [[40, 30], [110, 70], [170, 22], [250, 55], [330, 28], [410, 80], [470, 36], [540, 64], [575, 18], [300, 110]];
 /** [x em metros, tamanho] das pedras da área insegura */
@@ -35,6 +39,17 @@ const TECLAS: Record<string, 'cima' | 'esq' | 'dir' | 'assumir'> = {
   a: 'esq', arrowleft: 'esq', d: 'dir', arrowright: 'dir',
   e: 'assumir', enter: 'assumir',
 };
+
+/** Resume os botões da tela apertados: motor ligado? e direção lateral (-1, 0, 1). */
+function botoes(ponteiros: Map<number, 'motor' | -1 | 1>): { motor: boolean; lateral: number } {
+  let motor = false;
+  let lateral = 0;
+  for (const v of ponteiros.values()) {
+    if (v === 'motor') motor = true;
+    else lateral += v;
+  }
+  return { motor, lateral: Math.sign(lateral) };
+}
 
 function textoResultado(r: ResultadoPouso, e: EstadoPouso): { titulo: string; detalhe: string } {
   switch (r) {
@@ -49,7 +64,7 @@ function textoResultado(r: ResultadoPouso, e: EstadoPouso): { titulo: string; de
         detalhe:
           e.combustivel <= 0
             ? 'O combustível acabou e o Eagle caiu. Deixe descer mais no começo e freie só perto do solo.'
-            : `Tocou o solo a ${br(Math.abs(e.v), 1)} m/s (o máximo é ${br(POUSO.vPousoMax, 1)}). Segure W mais cedo para frear.`,
+            : `Tocou o solo a ${br(Math.abs(e.v), 1)} m/s (o máximo é ${br(POUSO.vPousoMax, 1)}). Segure ${CTRL.motor} mais cedo para frear.`,
       };
     case 'tombou':
       return {
@@ -74,10 +89,10 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
     estado: e,
     empuxo: 0,
     cima: false,
-    motorBotao: false,
     esq: false,
     dir: false,
-    botao: 0 as -1 | 0 | 1,
+    /** Botões da tela apertados agora: id do ponteiro (dedo ou mouse) -> o que ele segura. */
+    ponteiros: new Map<number, 'motor' | -1 | 1>(),
     alarmeTocou: false,
   });
 
@@ -97,6 +112,7 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
     s.estado = estadoInicialPouso();
     s.empuxo = 0;
     s.alarmeTocou = false;
+    s.ponteiros.clear();
     setE(s.estado);
   };
 
@@ -126,10 +142,10 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
       if (!s.estado.resultado) {
         if (s.estado.modo === 'manual') {
           // Motor ligado enquanto W (ou o botão) estiver apertado; sobe e desce rápido, mas não de estalo.
-          const alvo = s.cima || s.motorBotao ? 1 : 0;
+          const alvo = s.cima || botoes(s.ponteiros).motor ? 1 : 0;
           s.empuxo = limitar(s.empuxo + Math.sign(alvo - s.empuxo) * 4 * dt, 0, 1);
         }
-        const lateral = Math.sign((s.dir ? 1 : 0) - (s.esq ? 1 : 0) + s.botao) as -1 | 0 | 1;
+        const lateral = Math.sign((s.dir ? 1 : 0) - (s.esq ? 1 : 0) + botoes(s.ponteiros).lateral) as -1 | 0 | 1;
         s.estado = passoPouso(s.estado, { empuxo: s.empuxo, lateral }, dt);
         if (!s.alarmeTocou && s.estado.t >= POUSO.tAlarme) {
           s.alarmeTocou = true;
@@ -142,12 +158,22 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
     };
     raf = requestAnimationFrame(laco);
 
+    // Soltar o dedo ou o mouse em qualquer lugar da tela libera o botão que ele segurava.
+    const aoSoltarPonteiro = (ev: PointerEvent) => s.ponteiros.delete(ev.pointerId);
+    const aoPerderFoco = () => s.ponteiros.clear();
+
     window.addEventListener('keydown', aoPressionar);
     window.addEventListener('keyup', aoSoltar);
+    window.addEventListener('pointerup', aoSoltarPonteiro);
+    window.addEventListener('pointercancel', aoSoltarPonteiro);
+    window.addEventListener('blur', aoPerderFoco);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('keydown', aoPressionar);
       window.removeEventListener('keyup', aoSoltar);
+      window.removeEventListener('pointerup', aoSoltarPonteiro);
+      window.removeEventListener('pointercancel', aoSoltarPonteiro);
+      window.removeEventListener('blur', aoPerderFoco);
     };
   }, []);
 
@@ -159,7 +185,7 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
   const a = aceleracaoVertical(empuxo);
   const frenagem = voando && e.v < 0 ? aceleracaoParaParar(e.v, e.h) : 0;
   const frenagemMax = POUSO.aMotorMax - POUSO.g;
-  const lateral = voando && manual ? Math.sign((s.dir ? 1 : 0) - (s.esq ? 1 : 0) + s.botao) : 0;
+  const lateral = voando && manual ? Math.sign((s.dir ? 1 : 0) - (s.esq ? 1 : 0) + botoes(s.ponteiros).lateral) : 0;
   const inclinacao = e.resultado === 'tombou' ? 78 : e.resultado === 'colisao' ? 24 : lateral * 11;
   const resultado = e.resultado ? textoResultado(e.resultado, e) : null;
 
@@ -168,11 +194,11 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
   if (manual && voando) {
     const vSegura = velocidadeSegura(e.h);
     if (e.combustivel <= 0) dica = 'Sem combustível!';
-    else if (e.v < vSegura - 1.5) dica = 'Rápido demais: segure W para frear';
-    else if (e.v > -0.5 && e.h > 3) dica = 'Solte W para descer';
-    else if (e.x < POUSO.zonaSegura[0] + 8) dica = 'Vá para a direita: segure D ▶';
-    else if (Math.abs(e.vx) > POUSO.vxPousoMax && e.h < 40) dica = e.vx > 0 ? 'Pare de andar de lado: toque em A' : 'Pare de andar de lado: toque em D';
-    else dica = 'Bom ritmo: toques curtos em W';
+    else if (e.v < vSegura - 1.5) dica = `Rápido demais: segure ${CTRL.motor} para frear`;
+    else if (e.v > -0.5 && e.h > 3) dica = `Solte ${CTRL.motor} para descer`;
+    else if (e.x < POUSO.zonaSegura[0] + 8) dica = `Vá para a direita: segure ${CTRL.dir} ▶`;
+    else if (Math.abs(e.vx) > POUSO.vxPousoMax && e.h < 40) dica = `Pare de andar de lado: toque em ${e.vx > 0 ? CTRL.esq : CTRL.dir}`;
+    else dica = `Bom ritmo: toques curtos em ${CTRL.motor}`;
   }
 
   const instrucao = manual
@@ -181,10 +207,10 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
       ? 'ALARME 1202! O computador está sobrecarregado, e o alvo dele é uma cratera cheia de pedras.'
       : 'Descida automática (programa 63): o computador controla o motor.';
 
-  const segurar = (direcao: -1 | 1) => ({
-    onPointerDown: () => (s.botao = direcao),
-    onPointerUp: () => (s.botao = 0),
-    onPointerLeave: () => (s.botao = 0),
+  /** Botão de segurar: vale enquanto o dedo/mouse que o apertou não for solto (vários ao mesmo tempo). */
+  const segurar = (oQue: 'motor' | -1 | 1) => ({
+    onPointerDown: (ev: React.PointerEvent) => void s.ponteiros.set(ev.pointerId, oQue),
+    onContextMenu: (ev: React.MouseEvent) => ev.preventDefault(),
     disabled: !manual || !voando,
   });
 
@@ -258,7 +284,7 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
 
           {alarme && voando && (
             <button className="botao botao--ambar pouso__assumir" onClick={assumir}>
-              Assumir controle manual [E]
+              Assumir controle manual{TELA_DE_TOQUE ? '' : ' [E]'}
             </button>
           )}
 
@@ -345,11 +371,8 @@ export function Fase3Pouso({ aoConcluir }: PropsCena) {
             </div>
           </div>
           <button
-            className="botao botao--ambar"
-            disabled={!manual || !voando}
-            onPointerDown={() => (s.motorBotao = true)}
-            onPointerUp={() => (s.motorBotao = false)}
-            onPointerLeave={() => (s.motorBotao = false)}
+            className="botao botao--ambar pouso__motor"
+            {...segurar('motor')}
           >
             Motor (segure)
           </button>
